@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zion Agent Contract Tester</title>
+<meta name="description" content="Paste a sample tool output, get a JSON Schema and contract test skeleton for your agent tools. Free, in-browser. By Zion Tech Group.">
+<style>
+:root{--bg:#0d0b12;--card:#181423;--acc:#f0abfc;--txt:#f2ecfb;--mut:#a99cc6}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:48px 24px 24px;text-align:center;background:linear-gradient(160deg,#31154a,#0d0b12)}
+h1{margin:0 0 8px}.wrap{max-width:960px;margin:0 auto;padding:24px}
+.panel{background:var(--card);border:1px solid #2c2145;border-radius:14px;padding:20px;margin-bottom:20px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:12px 0 4px}
+textarea,input{width:100%;padding:10px;border-radius:8px;border:1px solid #382a57;background:#120e1d;color:var(--txt);font-family:ui-monospace,monospace;font-size:.85rem}
+textarea{min-height:140px}
+button{margin-top:14px;padding:12px 22px;border:0;border-radius:10px;background:var(--acc);color:#200826;font-weight:700;cursor:pointer}
+pre{white-space:pre-wrap;background:#100c1a;border:1px solid #2c2145;border-radius:12px;padding:16px;font-size:.82rem;max-height:420px;overflow:auto}
+footer{padding:32px 24px;text-align:center;color:var(--mut);font-size:.85rem;border-top:1px solid #231c3a;margin-top:40px}
+footer a{color:var(--acc);text-decoration:none;margin:0 8px}
+</style>
+</head>
+<body>
+<header><h1>🧪 Zion Agent Contract Tester</h1>
+<p>Agents break when tool outputs drift. Paste a sample output → get a JSON Schema + contract test skeleton to pin it down.</p></header>
+<div class="wrap">
+<div class="panel">
+<label>Tool name</label><input id="tn" value="search_knowledge_base">
+<label>Sample tool output (JSON)</label><textarea id="s">{"results":[{"title":"Refund policy","url":"https://kb/refunds","score":0.92}],"query":"refund","took_ms":45}</textarea>
+<button onclick="gen()">Generate contract</button>
+</div>
+<div class="panel" id="result" style="display:none"><h3>JSON Schema</h3><pre id="schema"></pre><h3>Contract test (pytest + jsonschema)</h3><pre id="test"></pre><button onclick="dl()">Download test file</button></div>
+</div>
+<footer>Part of the <a href="https://ziontechgroup.com">Zion Tech Group</a> AI apps network ·
+<a href="https://ziontechgroup.com/zion-agent-observability/">Agent Observability</a>
+<a href="https://ziontechgroup.com/zion-agent-stack-builder/">Stack Builder</a>
+<a href="https://ziontechgroup.com/zion-i18n-ai-checker/">i18n Checker</a></footer>
+<script>
+function schemaOf(v){if(v===null)return{type:'null'};if(Array.isArray(v))return{type:'array',items:v.length?schemaOf(v[0]):{}};
+if(typeof v==='object'){const o={type:'object',properties:{},required:Object.keys(v)};for(const[k,x]of Object.entries(v))o.properties[k]=schemaOf(x);return o;}
+return{type:typeof v==='number'?(Number.isInteger(v)?'integer':'number'):typeof v};}
+function gen(){let sample;try{sample=JSON.parse(document.getElementById('s').value);}catch(e){alert('Invalid JSON');return;}
+const tn=document.getElementById('tn').value||'tool';const sc=schemaOf(sample);sc.$schema='http://json-schema.org/draft-07/schema#';sc.title=tn;
+const scs=JSON.stringify(sc,null,2);
+const test=`import json, jsonschema
+
+SCHEMA = ${scs}
+
+def test_${tn.replace(/[^a-z0-9_]/gi,'_')}_contract():
+    # TODO: call the real tool with a fixed fixture input
+    output = ${JSON.stringify(sample)}
+    jsonschema.validate(output, SCHEMA)
+
+def test_${tn.replace(/[^a-z0-9_]/gi,'_')}_required_fields():
+    output = ${JSON.stringify(sample)}
+    for field in SCHEMA.get("required", []):
+        assert field in output, f"missing required field: {field}"
+`;
+document.getElementById('schema').textContent=scs;document.getElementById('test').textContent=test;
+window._doc=test;document.getElementById('result').style.display='block';}
+function dl(){const b=new Blob([window._doc],{type:'text/python'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='test_tool_contract.py';a.click();}
+</script>
+</body>
+</html>
